@@ -1,4 +1,5 @@
-flask
-google-cloud-bigquery
-werkzeug
+Flask
 gunicorn
+gspread
+google-cloud-bigquery
+google-auth
