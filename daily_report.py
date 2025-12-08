@@ -67,6 +67,11 @@ else:
 
 # Sheets client 共用同一組 creds
 sheets_client = gspread.authorize(creds)
+# BigQuery 表名
+RESIDENT_TABLE = "`skillful-signer-322707.Big_Query_SQL_Daily.resdient_agency_device`"
+DAILY_TABLE    = "`skillful-signer-322707.Big_Query_SQL_Daily.N_2311_Daily`"
+DURATION_TABLE = "`skillful-signer-322707.Big_Query_SQL_Daily.N_bq_Duration24`"
+TOC_FIG_TABLE  = "`skillful-signer-322707.Big_Query_SQL_Daily.N_bq_toC_fig`"  # 30日作息用
 
 # ================== 2. Flask App 基本設定 ==================
 
