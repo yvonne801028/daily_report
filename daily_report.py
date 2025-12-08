@@ -25,53 +25,61 @@ from google.cloud import bigquery
 import gspread
 from google.oauth2.service_account import Credentials
 
-# ================== 1. BigQuery + Google Sheet 憑證設定 ==================
+# ================== 1. BigQuery / Google Sheet 連線設定 ==================
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
+# ---- Google Sheet - 評語設定 ----
 SHEET_SPREADSHEET_ID = "1uGA6GBkhItPp730Fbj7anMSQ1LS_eK7T0GQcb5iVt3w"
 SHEET_GID = 0
 
+# 只給 Sheet 用的 scopes
 SHEETS_SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets.readonly",
     "https://www.googleapis.com/auth/drive.readonly",
 ]
 
-# 優先從環境變數讀 JSON（金鑰不放到 GitHub）
+# BigQuery 也要用同一組 credential，所以把 bigquery scope 加進來
+ALL_GOOGLE_SCOPES = SHEETS_SCOPES + [
+    "https://www.googleapis.com/auth/bigquery",
+]
+
+# Render 上：service account JSON 放在環境變數 GOOGLE_SERVICE_ACCOUNT_JSON 裡
 SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
 
 if SERVICE_ACCOUNT_JSON:
-    # 雲端（Render）用：環境變數裡直接放整包 JSON
+    # 從環境變數讀 JSON
     key_info = json.loads(SERVICE_ACCOUNT_JSON)
 
-    creds = Credentials.from_service_account_info(
+    google_creds = Credentials.from_service_account_info(
         key_info,
-        scopes=SHEETS_SCOPES,
+        scopes=ALL_GOOGLE_SCOPES,
     )
 
     bq_client = bigquery.Client(
-        credentials=creds,
-        project=key_info.get("project_id"),  # 從 JSON 裡抓 project_id
+        credentials=google_creds,
+        project=key_info.get("project_id"),
     )
 else:
-    # 本機：沿用原本 key/yv-bq-key.json
+    # 本機開發：改回用 key 檔
     KEY_PATH = resource_path(os.path.join("key", "yv-bq-key.json"))
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = KEY_PATH
 
-    creds = Credentials.from_service_account_file(
+    google_creds = Credentials.from_service_account_file(
         KEY_PATH,
-        scopes=SHEETS_SCOPES,
+        scopes=ALL_GOOGLE_SCOPES,
     )
 
     bq_client = bigquery.Client()
 
-# Sheets client 共用同一組 creds
-sheets_client = gspread.authorize(creds)
-# BigQuery 表名
-RESIDENT_TABLE = "`skillful-signer-322707.Big_Query_SQL_Daily.resdient_agency_device`"
-DAILY_TABLE    = "`skillful-signer-322707.Big_Query_SQL_Daily.N_2311_Daily`"
-DURATION_TABLE = "`skillful-signer-322707.Big_Query_SQL_Daily.N_bq_Duration24`"
-TOC_FIG_TABLE  = "`skillful-signer-322707.Big_Query_SQL_Daily.N_bq_toC_fig`"  # 30日作息用
+# gspread 用同一組憑證（已含 sheet + drive + bigquery scopes）
+sheets_client = gspread.authorize(google_creds)
+
+# ---- BigQuery 表名 ----
+RESIDENT_TABLE   = "`skillful-signer-322707.Big_Query_SQL_Daily.resdient_agency_device`"
+DAILY_TABLE      = "`skillful-signer-322707.Big_Query_SQL_Daily.N_2311_Daily`"
+DURATION_TABLE   = "`skillful-signer-322707.Big_Query_SQL_Daily.N_bq_Duration24`"
+TOC_FIG_TABLE    = "`skillful-signer-322707.Big_Query_SQL_Daily.N_bq_toC_fig`"  # 30日作息用
 
 # ================== 2. Flask App 基本設定 ==================
 
