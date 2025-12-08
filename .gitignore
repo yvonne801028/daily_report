@@ -1,0 +1,22 @@
+# PyCharm 設定檔
+.idea/
+
+# 虛擬環境
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# build / dist / pyinstaller
+build/
+dist/
+*.spec
+
+# 金鑰與機密
+key/
+*.json
+
+# 其他暫存
+*.log

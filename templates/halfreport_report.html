@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ report_year }}年{{ "%02d"|format(report_month) }}月 半年追蹤報表 - {{ resident.resident_name }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 匯出圖檔 / PDF 用 -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 16px;
+            font-family: "Microsoft JhengHei", -apple-system, BlinkMacSystemFont,
+                         "Segoe UI", system-ui, sans-serif;
+            background: #bfe6ec;
+            overflow-x: hidden;
+        }
+
+        .report-page {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fefefe;
+            border-radius: 24px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
+            overflow: hidden;
+        }
+
+        /* ===== header ===== */
+
+        .header {
+            background: linear-gradient(90deg, #ff7fa3 0%, #ffb0d0 50%, #ffe3f0 100%);
+            padding: 12px 24px 10px;
+            color: #333;
+            position: relative;
+        }
+
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        .header-month {
+            background: #fdfdfd;
+            border-radius: 999px;
+            padding: 6px 18px;
+            font-size: 18px;
+            font-weight: 700;
+            border: 2px solid #333;
+            box-shadow: 0 3px 0 #e291a8;
+            white-space: nowrap;
+        }
+
+        .header-right {
+            text-align: right;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .header-right strong {
+            font-weight: 700;
+        }
+
+        /* ===== 名字 + Thanks.png + 趨勢分數（一顆笑臉） ===== */
+
+        .header-main-row {
+            margin-top: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .resident-block {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .resident-person {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .resident-name-box {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .resident-name-title {
+            font-size: 13px;
+            letter-spacing: 0.2em;
+            text-indent: 0.2em;
+            color: #555;
+        }
+
+        .resident-name {
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: 0.15em;
+            text-indent: 0.15em;
+        }
+
+        .trend-block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            min-width: 160px;
+            margin-top: -20px;
+        }
+
+        .trend-label {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.2em;
+            text-indent: 0.2em;
+        }
+
+        .trend-icon-circle {
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            background: #fff7f7;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.18);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 25px;
+        }
+
+        .trend-icon-circle img {
+            width: 130px;
+            height: 130px;
+            object-fit: contain;
+        }
+
+        .trend-text {
+            font-size: 13px;
+            text-align: center;
+            line-height: 1.6;
+            padding: 4px 8px;
+            margin-top: 0px;
+        }
+
+        .trend-text span.tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 24px;
+            margin-bottom: 2px;
+            background: #ffece8;
+            border: 1px solid #f2b9a7;
+            position: relative;
+            top: -90px;
+            left: -120px;
+        }
+
+        /* ===== 內容 ===== */
+
+        .content {
+            padding: 18px 24px 20px;
+            background: #f6fbff;
+        }
+
+        /* 匯出按鈕列 */
+        .export-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .export-buttons button {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 999px;
+            border: 1px solid #888;
+            background: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 2px 0 rgba(0,0,0,0.15);
+        }
+
+        .export-buttons button:active {
+            transform: translateY(1px);
+            box-shadow: 0 1px 0 rgba(0,0,0,0.15);
+        }
+
+        .summary-bubble {
+            background: #ffffff;
+            border-radius: 18px;
+            border: 2px solid #ffd5df;
+            padding: 10px 14px;
+            font-size: 14px;
+            line-height: 1.7;
+            margin: 16px 0 10px;
+            position: relative;
+        }
+
+        .summary-bubble::before {
+            content: "";
+            position: absolute;
+            left: 40px;
+            top: -14px;
+            border-width: 0 12px 14px 12px;
+            border-style: solid;
+            border-color: transparent transparent #ffd5df transparent;
+        }
+
+        .summary-bubble::after {
+            content: "";
+            position: absolute;
+            left: 41px;
+            top: -11px;
+            border-width: 0 11px 13px 11px;
+            border-style: solid;
+            border-color: transparent transparent #ffffff transparent;
+        }
+
+        .section-title-main {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        /* 圖表卡片 */
+
+        .chart-section {
+            margin-top: 12px;
+            background: #ffffff;
+            border-radius: 12px;
+            border: 2px solid #333;
+            padding: 8px 10px 10px;
+            box-shadow: 0 4px 0 rgba(0, 0, 0, 0.18);
+        }
+
+        .chart-section + .chart-section {
+            margin-top: 16px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            margin-bottom: 4px;
+            gap: 8px;
+        }
+
+        .chart-title-pill {
+            background: #ff9eb3;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 4px 14px;
+            border-radius: 999px;
+        }
+
+        .chart-canvas-wrapper {
+            margin-top: 4px;
+        }
+
+        .chart-canvas-wrapper canvas {
+            width: 100%;
+            height: 160px;
+        }
+
+        .footer-note {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #777;
+            text-align: right;
+        }
+
+        /* ======= 手機版 ======= */
+        @media (max-width: 700px) {
+            body {
+                padding: 8px;
+            }
+
+            .report-page {
+                border-radius: 16px;
+                box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+            }
+
+            .header {
+                padding: 14px 16px 16px;
+            }
+
+            .header-top {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 6px;
+            }
+
+            .header-month {
+                font-size: 16px;
+                padding: 4px 12px;
+            }
+
+            .header-right {
+                font-size: 12px;
+                text-align: left;
+            }
+
+            .header-main-row {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .resident-block {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .resident-person {
+                width: 180px;
+                height: 180px;
+            }
+
+            .resident-name {
+                font-size: 22px;
+            }
+
+            .trend-block {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 6px;
+                min-width: 160px;
+            }
+
+            .trend-text {
+                font-size: 12px;
+            }
+
+            .content {
+                padding: 14px 12px 16px;
+            }
+
+            .summary-bubble {
+                font-size: 13px;
+            }
+
+            .chart-section {
+                padding: 8px 8px 10px;
+            }
+
+            .chart-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 6px;
+            }
+
+            .chart-title-pill {
+                border-radius: 999px;
+                font-size: 12px;
+                padding: 4px 10px;
+                align-self: flex-start;
+            }
+
+            .chart-canvas-wrapper canvas {
+                height: 200px;
+            }
+
+            .footer-note {
+                text-align: left;
+                font-size: 10px;
+            }
+
+            .export-buttons {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="report-page">
+
+    <!-- ===== header ===== -->
+    <header class="header">
+        <div class="header-top">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <div class="header-month">
+                    半年追蹤（截至 {{ report_year }}年{{ "%02d"|format(report_month) }}月）
+                </div>
+            </div>
+            <div class="header-right">
+                <div><strong>ID：</strong>{{ resident.resident_id }}</div>
+                <div><strong>序號：</strong>{{ resident.serial_id }}</div>
+                <div><strong>床號：</strong>{{ resident.bed_number }}</div>
+                {% if resident.agency_name %}
+                    <div><strong>機構：</strong>{{ resident.agency_name }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        {# === 根據 report_type & Google Sheet 每月趨勢狀態 決定圖示分數 === #}
+        {% set mc = month_comments|default({}, true) %}
+        {% if report_type == "bed" %}
+            {% set trend_text = mc.get("bed_trend", "") %}
+        {% else %}
+            {% set trend_text = mc.get("active_trend", "") %}
+        {% endif %}
+
+        {# 預設：穩定 → level_2，並同時決定 tag 顯示文字 #}
+        {% set trend_level = 2 %}
+        {% set trend_tag = '趨勢' %}
+        {% if "變佳" in trend_text %}
+            {% set trend_level = 3 %}
+            {% set trend_tag = '變佳' %}
+        {% elif "變差" in trend_text %}
+            {% set trend_level = 1 %}
+            {% set trend_tag = '變差' %}
+        {% elif "穩定" in trend_text %}
+            {% set trend_level = 2 %}
+            {% set trend_tag = '穩定' %}
+        {% endif %}
+
+        <div class="header-main-row">
+            <div class="resident-block">
+                <img class="resident-person"
+                     src="{{ url_for('static', filename='img/Thanks.png') }}"
+                     alt="resident icon">
+                <div class="resident-name-box">
+                    <div class="resident-name-title">住民姓名</div>
+                    <div class="resident-name">{{ resident.resident_name }}</div>
+                </div>
+            </div>
+
+            <div class="trend-block">
+                <div class="trend-icon-circle">
+                    <img src="{{ url_for('static', filename='icons/level_' ~ trend_level ~ '.png') }}"
+                         alt="{{ trend_text or '趨勢圖示' }}">
+                </div>
+                <div class="trend-text">
+                    {% if trend_text %}
+                        <span class="tag">{{ trend_tag }}</span>
+                        {% if trend_text|trim != trend_tag %}
+                            {{ trend_text }}
+                        {% endif %}
+                    {% else %}
+                        <span class="tag">無趨勢</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== 內容 ===== -->
+    <main class="content">
+
+        <!-- 匯出按鈕 -->
+        <div class="export-buttons">
+            <button type="button" onclick="downloadPng()">下載圖檔 (PNG)</button>
+            <button type="button" onclick="downloadPdf()">下載 PDF</button>
+        </div>
+
+        <div class="section-title-main">半年摘要：</div>
+        <div class="summary-bubble">
+            {{ half_summary or "半年追蹤摘要尚未設定，之後可依照需求由後端帶入文字。" }}
+        </div>
+
+        <!-- 圖1：離床=夜間休息時長 / 臥床=日夜翻身間隔 -->
+        <section class="chart-section">
+            <div class="chart-header">
+                <div class="chart-title-pill">
+                    {% if report_type == "bed" %}
+                        每月平均日夜翻身間隔
+                    {% else %}
+                        每月平均夜間休息時長
+                    {% endif %}
+                </div>
+            </div>
+            <div class="chart-canvas-wrapper">
+                <canvas id="chart1"></canvas>
+            </div>
+        </section>
+
+        <!-- 圖2：每月平均夜間休息品質 -->
+        <section class="chart-section">
+            <div class="chart-header">
+                <div class="chart-title-pill">
+                    每月平均夜間休息品質
+                </div>
+            </div>
+            <div class="chart-canvas-wrapper">
+                <canvas id="chart2"></canvas>
+            </div>
+        </section>
+
+        <!-- 圖3：每月平均呼吸紀錄 -->
+        <section class="chart-section">
+            <div class="chart-header">
+                <div class="chart-title-pill">
+                    {% if report_type == "bed" %}
+                        每月平均呼吸紀錄
+                    {% else %}
+                        每月平均呼吸紀錄
+                    {% endif %}
+                </div>
+            </div>
+            <div class="chart-canvas-wrapper">
+                <canvas id="chart3"></canvas>
+            </div>
+        </section>
+
+        <!-- 圖4：臥床=每月日夜在床狀況 / 離床=每月平均夜間離床狀況 -->
+        <section class="chart-section">
+            <div class="chart-header">
+                <div class="chart-title-pill">
+                    {% if report_type == "bed" %}
+                        每月日夜在床狀況
+                    {% else %}
+                        每月平均夜間離床狀況
+                    {% endif %}
+                </div>
+            </div>
+            <div class="chart-canvas-wrapper">
+                <canvas id="chart4"></canvas>
+            </div>
+        </section>
+
+        <!-- 圖5：日間離床 / 上床休息時間 -->
+        <section class="chart-section">
+            <div class="chart-header">
+                <div class="chart-title-pill">
+                    {% if report_type == "bed" %}
+                        每月平均日間離床時長
+                    {% else %}
+                        每月平均上床休息時間
+                    {% endif %}
+                </div>
+            </div>
+            <div class="chart-canvas-wrapper">
+                <canvas id="chart5"></canvas>
+            </div>
+        </section>
+
+        <div class="footer-note">
+            追蹤區間：以 {{ report_year }}年{{ "%02d"|format(report_month) }}月 為基準回溯約 6 個月　
+            （本頁圖表僅供照護參考，若有不適請儘速就醫）
+        </div>
+
+    </main>
+</div>
+
+<script>
+    // 後端若尚未提供資料，這裡先給預設空陣列 / 物件，避免錯誤
+    const labelsMonths   = {{ labels_months | default([], true) | tojson }};
+    const chart1Data     = {{ chart1_data   | default({},  true) | tojson }};
+    const chart2Data     = {{ chart2_data   | default({},  true) | tojson }};
+    const chart3Data     = {{ chart3_data   | default([], true) | tojson }};
+    const chart4Data     = {{ chart4_data   | default({},  true) | tojson }};
+    const chart5Data     = {{ chart5_data   | default({},  true) | tojson }};
+    const reportType     = "{{ report_type }}";
+
+    function makeLineChart(ctxId, labels, data, yLabel) {
+        const ctx = document.getElementById(ctxId);
+        if (!ctx) return;
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    tension: 0.3,
+                    pointRadius: 3,
+                    borderWidth: 2,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false }
+                    },
+                    y: {
+                        beginAtZero: false,
+                        title: { display: !!yLabel, text: yLabel }
+                    }
+                }
+            }
+        });
+    }
+
+    // === 圖1：離床=夜間在床/休息；臥床=日夜翻身間隔 ===
+    (function drawChart1() {
+        const ctx = document.getElementById('chart1');
+        if (!ctx) return;
+
+        const isObj = chart1Data && typeof chart1Data === 'object' && !Array.isArray(chart1Data);
+
+        // 臥床模板：每月平均日夜翻身間隔（雙折線）
+        if (reportType === 'bed') {
+            const nightTurn = isObj && Array.isArray(chart1Data.night_turn) ? chart1Data.night_turn : [];
+            const dayTurn   = isObj && Array.isArray(chart1Data.day_turn)   ? chart1Data.day_turn   : [];
+
+            if (!nightTurn.length && !dayTurn.length) {
+                makeLineChart('chart1', labelsMonths, [], '平均翻身間隔(分鐘)');
+                return;
+            }
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labelsMonths,
+                    datasets: [
+                        {
+                            label: '夜間翻身',
+                            data: nightTurn,
+                            borderColor: '#000000',
+                            backgroundColor: 'rgba(0,0,0,0)',
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            fill: false,
+                            tension: 0.3
+                        },
+                        {
+                            label: '日間翻身',
+                            data: dayTurn,
+                            borderColor: '#007bff',
+                            backgroundColor: 'rgba(0,0,0,0)',
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            fill: false,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: {
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: '平均翻身間隔(分鐘)'
+                            }
+                        }
+                    }
+                }
+            });
+            return;
+        }
+
+        // 離床模板：每月平均夜間在床 / 夜間休息（雙長條）
+        const dataOnBed = isObj && Array.isArray(chart1Data.night_on_bed) ? chart1Data.night_on_bed : null;
+        const dataSleep = isObj && Array.isArray(chart1Data.night_sleep) ? chart1Data.night_sleep : null;
+
+        if (dataOnBed && dataSleep) {
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labelsMonths,
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: '夜間在床時間(小時)',
+                            data: dataOnBed,
+                            backgroundColor: 'rgba(80, 150, 255, 0.9)'
+                        },
+                        {
+                            type: 'bar',
+                            label: '夜間休息時間(小時)',
+                            data: dataSleep,
+                            backgroundColor: 'rgba(255, 210, 90, 0.9)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '小時'
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            makeLineChart('chart1', labelsMonths, chart1Data || [], '小時');
+        }
+    })();
+
+    // === 圖2：每月平均夜間休息品質 ===
+    // 左軸：休息效率(%) 直條；右軸：夜間離床次數 折線（虛線）
+    (function drawChart2() {
+        const ctx = document.getElementById('chart2');
+        if (!ctx) return;
+
+        const isObj = chart2Data && typeof chart2Data === 'object' && !Array.isArray(chart2Data);
+        const effData   = isObj && Array.isArray(chart2Data.efficiency_percent) ? chart2Data.efficiency_percent : null;
+        const leaveData = isObj && Array.isArray(chart2Data.leave_count)        ? chart2Data.leave_count        : null;
+
+        if (effData && leaveData) {
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labelsMonths,
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: '夜間休息離床次數',
+                            data: leaveData,
+                            borderColor: '#0044CC',
+                            pointBackgroundColor: '#002060',
+                            pointBorderColor: '#002060',
+                            backgroundColor: 'rgba(0,0,0,0)',
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            pointStyle: 'star',
+                            fill: false,
+                            tension: 0.3,
+                            borderDash: [4, 4],
+                            yAxisID: 'yRight'
+                        },
+                        {
+                            type: 'bar',
+                            label: '休息效率',
+                            data: effData,
+                            backgroundColor: 'rgba(160, 200, 255, 0.9)',
+                            yAxisID: 'yLeft'
+                        },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { usePointStyle: true }
+                        },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false }
+                        },
+                        yLeft: {
+                            type: 'linear',
+                            position: 'left',
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function (value) {
+                                    return value + '%';
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: '休息效率(%)'
+                            }
+                        },
+                        yRight: {
+                            type: 'linear',
+                            position: 'right',
+                            beginAtZero: true,
+                            grid: {
+                                drawOnChartArea: false
+                            },
+                            title: {
+                                display: true,
+                                text: '夜間離床次數'
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            makeLineChart('chart2', labelsMonths, chart2Data || [], '');
+        }
+    })();
+
+    // === 圖3：每月平均呼吸紀錄 ===
+    (function drawChart3() {
+        const ctx = document.getElementById('chart3');
+        if (!ctx) return;
+
+        const data = Array.isArray(chart3Data) ? chart3Data : [];
+        if (!data.length) {
+            makeLineChart('chart3', labelsMonths, data, '呼吸率');
+            return;
+        }
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labelsMonths,
+                datasets: [{
+                    label: '休息呼吸率',
+                    data: data,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    borderWidth: 2,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false }
+                    },
+                    y: {
+                        beginAtZero: false,
+                        min: 5,
+                        title: {
+                            display: true,
+                            text: '呼吸率'
+                        }
+                    }
+                }
+            }
+        });
+    })();
+
+    // === 圖4：臥床=每月日夜在床狀況 / 離床=每月平均夜間離床狀況 ===
+    (function drawChart4() {
+        const ctx = document.getElementById('chart4');
+        if (!ctx) return;
+
+        const isObj = chart4Data && typeof chart4Data === 'object' && !Array.isArray(chart4Data);
+
+        // ===== 臥床模板：每月日夜在床狀況 → 兩組長條圖（小時） =====
+        if (reportType === 'bed' && isObj) {
+            const dayOnBed   = Array.isArray(chart4Data.day_on_bed)   ? chart4Data.day_on_bed   : [];
+            const nightOnBed = Array.isArray(chart4Data.night_on_bed) ? chart4Data.night_on_bed : [];
+
+            if (!dayOnBed.length && !nightOnBed.length) {
+                // 沒資料就畫空圖避免錯誤
+                makeLineChart('chart4', labelsMonths, [], '小時');
+                return;
+            }
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labelsMonths,
+                    datasets: [
+                        {
+                            label: '日間在床(小時)',
+                            data: dayOnBed,
+                            backgroundColor: 'rgba(160, 200, 255, 0.9)'
+                        },
+                        {
+                            label: '夜間在床(小時)',
+                            data: nightOnBed,
+                            backgroundColor: 'rgba(255, 180, 140, 0.9)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '在床時數(小時)'
+                            }
+                        }
+                    }
+                }
+            });
+            return;
+        }
+
+        // ===== 離床模板：每月平均夜間離床狀況 → 線圖（分鐘） =====
+        let data = [];
+        let yTitle = '次數';
+
+        if (isObj && Array.isArray(chart4Data.leave_min)) {
+            // 後端提供 leave_min（夜間離床分鐘數）
+            data = chart4Data.leave_min;
+            yTitle = '分鐘';
+        } else if (Array.isArray(chart4Data)) {
+            // 舊版相容：直接是一個 array
+            data = chart4Data;
+            yTitle = '次數';
+        }
+
+        if (!data.length) {
+            makeLineChart('chart4', labelsMonths, data, yTitle);
+            return;
+        }
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labelsMonths,
+                datasets: [{
+                    label: '夜間離床狀況',
+                    data: data,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    borderWidth: 2,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: yTitle
+                        }
+                    }
+                }
+            }
+        });
+    })();
+
+    // === 圖5：日間離床 / 上床休息時間 ===
+    (function drawChart5() {
+        const ctx = document.getElementById('chart5');
+        if (!ctx) return;
+
+        const isObj = chart5Data && typeof chart5Data === 'object' && !Array.isArray(chart5Data);
+        let data = [];
+        let label = '';
+        let yTitle = '';
+        let isTimeAxis = false;
+
+        if (isObj) {
+            if (reportType === 'bed') {
+                data = Array.isArray(chart5Data.day_leave_hours) ? chart5Data.day_leave_hours : [];
+                label = '日間離床時長(小時)';
+                yTitle = '小時';
+            } else {
+                data = Array.isArray(chart5Data.asleep_start_hour) ? chart5Data.asleep_start_hour : [];
+                label = '上床休息時間';
+                yTitle = '時間';
+                isTimeAxis = true;
+            }
+        } else if (Array.isArray(chart5Data)) {
+            data = chart5Data;
+        }
+
+        if (!data.length) {
+            makeLineChart('chart5', labelsMonths, data, yTitle);
+            return;
+        }
+
+        const options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true, position: 'top' },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {}
+                }
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y: {
+                    beginAtZero: false,
+                    title: { display: !!yTitle, text: yTitle }
+                }
+            }
+        };
+
+        if (isTimeAxis) {
+            // 16:00 ~ 04:00（隔天） → 16~28
+            options.scales.y.min = 16;
+            options.scales.y.max = 28;
+            options.scales.y.ticks = {
+                callback: function (value) {
+                    const h = Math.floor(value);
+                    const m = Math.round((value - h) * 60);
+                    const hh = (h % 24).toString().padStart(2, '0');
+                    const mm = m.toString().padStart(2, '0');
+                    return `${hh}:${mm}`;
+                }
+            };
+            options.plugins.tooltip.callbacks.label = function (ctx) {
+                const v = ctx.parsed.y;
+                const h = Math.floor(v);
+                const m = Math.round((v - h) * 60);
+                const hh = (h % 24).toString().padStart(2, '0');
+                const mm = m.toString().padStart(2, '0');
+                return `${ctx.dataset.label}: ${hh}:${mm}`;
+            };
+        }
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labelsMonths,
+                datasets: [{
+                    label: label,
+                    data: data,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    borderWidth: 2,
+                    fill: false
+                }]
+            },
+            options: options
+        });
+    })();
+
+    // ===== 匯出：PNG / PDF =====
+    function captureReportPage() {
+        const node = document.querySelector('.report-page');
+        return html2canvas(node, {
+            scale: 2,
+            useCORS: true,
+            scrollY: -window.scrollY
+        });
+    }
+
+    function downloadPng() {
+        captureReportPage().then(canvas => {
+            const link = document.createElement('a');
+            const y = {{ report_year }};
+            const m = {{ "%02d"|format(report_month) }};
+            const name = '{{ resident.resident_name|replace(" ", "_") }}';
+            link.download = `${y}${m}_半年追蹤_${name}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+    }
+
+    function downloadPdf() {
+        captureReportPage().then(canvas => {
+            const imgData = canvas.toDataURL('image/jpeg', 0.98);
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+
+            const pageWidth  = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth   = pageWidth;
+            const imgHeight  = canvas.height * imgWidth / canvas.width;
+
+            if (imgHeight <= pageHeight) {
+                pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+            } else {
+                const ratio = pageHeight / imgHeight;
+                const w = imgWidth * ratio;
+                const x = (pageWidth - w) / 2;
+                pdf.addImage(imgData, 'JPEG', x, 0, w, pageHeight);
+            }
+
+            const y = {{ report_year }};
+            const m = {{ "%02d"|format(report_month) }};
+            const name = '{{ resident.resident_name|replace(" ", "_") }}';
+            pdf.save(`${y}${m}_半年追蹤_${name}.pdf`);
+        });
+    }
+</script>
+</body>
+</html>

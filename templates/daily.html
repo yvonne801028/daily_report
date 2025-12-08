@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ report_year }}-{{ "%02d"|format(report_month) }} DAILY 資料</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      margin: 16px;
+    }
+    h1, h2, h3 {
+      margin: 8px 0;
+    }
+    table {
+      border-collapse: collapse;
+      margin-top: 8px;
+      margin-bottom: 16px;
+      min-width: 600px;
+    }
+    th, td {
+      border: 1px solid #000;
+      padding: 4px 6px;
+      font-size: 13px;
+      vertical-align: top;
+    }
+    th {
+      background-color: #f0f0f0;
+    }
+    .month-form {
+      margin-bottom: 12px;
+    }
+    .month-form label {
+      margin-right: 4px;
+    }
+    .comment-box {
+      border: 1px solid #f9c8a3;
+      background: #fff7ed;
+      padding: 10px 12px;
+      margin: 12px 0 20px 0;
+      max-width: 900px;
+    }
+    .comment-box h2 {
+      margin-top: 0;
+    }
+    .comment-title {
+      font-weight: 700;
+    }
+    .comment-item {
+      margin: 4px 0;
+    }
+  </style>
+</head>
+<body>
+
+<h1>月份選擇</h1>
+<form class="month-form" action="{{ url_for('daily') }}" method="get">
+  年份：
+  <input type="number" name="year" value="{{ report_year }}" style="width:80px;">
+  月份：
+  <input type="number" name="month" value="{{ report_month }}" style="width:50px; min:1; max:12;">
+  <button type="submit">切換月份</button>
+</form>
+
+<p>
+  <a href="{{ url_for('report', year=report_year, month=report_month) }}">
+    查看 {{ report_year }}-{{ "%02d"|format(report_month) }} 月報
+  </a>
+</p>
+
+<!-- 本月摘要與評語區塊 -->
+<div class="comment-box">
+  <h2>本月摘要與評語</h2>
+
+  <p class="comment-item">
+    <span class="comment-title">報表類型：</span>
+    {{ '臥床報表' if report_type == 'bed' else '離床報表' }}
+  </p>
+
+  <p class="comment-item">
+    <span class="comment-title">本月總結：</span>
+    {% if report_type == 'bed' %}
+      {% if month_comments.bed_summary %}
+        {{ month_comments.bed_summary | replace('\n','<br>') | safe }}
+      {% else %}
+        （尚未設定本月臥床總結）
+      {% endif %}
+    {% else %}
+      {% if month_comments.active_summary %}
+        {{ month_comments.active_summary | replace('\n','<br>') | safe }}
+      {% else %}
+        （尚未設定本月離床總結）
+      {% endif %}
+    {% endif %}
+  </p>
+
+  <p class="comment-item">
+    <span class="comment-title">每月趨勢狀態：</span>
+    {% if report_type == 'bed' %}
+      {% if month_comments.bed_trend %}
+        {{ month_comments.bed_trend | replace('\n','<br>') | safe }}
+      {% else %}
+        （尚未設定臥床每月趨勢狀態）
+      {% endif %}
+    {% else %}
+      {% if month_comments.active_trend %}
+        {{ month_comments.active_trend | replace('\n','<br>') | safe }}
+      {% else %}
+        （尚未設定離床每月趨勢狀態）
+      {% endif %}
+    {% endif %}
+  </p>
+
+  <p class="comment-item">
+    <span class="comment-title">月趨勢總結：</span>
+    {% if report_type == 'bed' %}
+      {% if month_comments.bed_trend_summary %}
+        {{ month_comments.bed_trend_summary | replace('\n','<br>') | safe }}
+      {% else %}
+        （尚未設定臥床月趨勢總結）
+      {% endif %}
+    {% else %}
+      {% if month_comments.active_trend_summary %}
+        {{ month_comments.active_trend_summary | replace('\n','<br>') | safe }}
+      {% else %}
+        （尚未設定離床月趨勢總結）
+      {% endif %}
+    {% endif %}
+  </p>
+
+  <hr />
+
+  <!-- 四張圖對應的評語，方便對照 month_report -->
+  <p class="comment-item">
+    <span class="comment-title">每日呼吸紀錄：</span>
+    {% if report_type == 'bed' %}
+      {% if month_comments.bed_resp %}
+        {{ month_comments.bed_resp | replace('\n','<br>') | safe }}
+      {% else %}
+        以每晚平均呼吸率變化呈現，若呼吸速率持續明顯升高或降低，建議與專業醫護人員討論。
+      {% endif %}
+    {% else %}
+      {% if month_comments.active_resp %}
+        {{ month_comments.active_resp | replace('\n','<br>') | safe }}
+      {% else %}
+        以每晚平均呼吸率變化呈現，若呼吸速率持續明顯升高或降低，建議與專業醫護人員討論。
+      {% endif %}
+    {% endif %}
+  </p>
+
+  <p class="comment-item">
+    <span class="comment-title">
+      {% if report_type == 'bed' %}夜間最長臥床時長：{% else %}每日夜間休息時段：{% endif %}
+    </span>
+    {% if report_type == 'bed' %}
+      {% if month_comments.bed_night_bed %}
+        {{ month_comments.bed_night_bed | replace('\n','<br>') | safe }}
+      {% else %}
+        以每天夜間單次最長臥床時長呈現，條狀越高代表當晚連續臥床時間越長。
+      {% endif %}
+    {% else %}
+      {% if month_comments.active_sleep_range %}
+        {{ month_comments.active_sleep_range | replace('\n','<br>') | safe }}
+      {% else %}
+        以晚上入睡到起床的大致時間區間顯示，可觀察每天夜間休息是否規律。
+      {% endif %}
+    {% endif %}
+  </p>
+
+  <p class="comment-item">
+    <span class="comment-title">
+      {% if report_type == 'bed' %}全日離床總時長：{% else %}每日上床休息時間：{% endif %}
+    </span>
+    {% if report_type == 'bed' %}
+      {% if month_comments.bed_leave_total %}
+        {{ month_comments.bed_leave_total | replace('\n','<br>') | safe }}
+      {% else %}
+        反映一天 24 小時中整體離床活動時間，離床越久代表當日活動量越高。
+      {% endif %}
+    {% else %}
+      {% if month_comments.active_asleep_start %}
+        {{ month_comments.active_asleep_start | replace('\n','<br>') | safe }}
+      {% else %}
+        以 20:00 ~ 隔日清晨的時間軸表示上床時間，可看出是否經常太晚就寢。
+      {% endif %}
+    {% endif %}
+  </p>
+
+  <p class="comment-item">
+    <span class="comment-title">
+      {% if report_type == 'bed' %}日夜平均翻身間隔：{% else %}夜間休息離床次數：{% endif %}
+    </span>
+    {% if report_type == 'bed' %}
+      {% if month_comments.bed_turn %}
+        {{ month_comments.bed_turn | replace('\n','<br>') | safe }}
+      {% else %}
+        夜間翻身太少可能壓迫皮膚、影響循環；翻身過於頻繁也可能代表不適或睡眠較淺。
+      {% endif %}
+    {% else %}
+      {% if month_comments.active_night_leave %}
+        {{ month_comments.active_night_leave | replace('\n','<br>') | safe }}
+      {% else %}
+        夜間離床次數可反映起床上廁所或不適情形，若明顯增加可多留意作息與身體狀況。
+      {% endif %}
+    {% endif %}
+  </p>
+</div>
+
+<!-- 住民基本資料 -->
+<h2>住民基本資料</h2>
+<table>
+  <tr><th>欄位</th><th>值</th></tr>
+  <tr><td>resident_id</td><td>{{ resident.resident_id }}</td></tr>
+  <tr><td>resident_name</td><td>{{ resident.resident_name }}</td></tr>
+  <tr><td>serial_id</td><td>{{ resident.serial_id }}</td></tr>
+  <tr><td>agency_id</td><td>{{ resident.agency_id }}</td></tr>
+  <tr><td>agency_name</td><td>{{ resident.agency_name }}</td></tr>
+  <tr><td>codename</td><td>{{ resident.codename }}</td></tr>
+  <tr><td>bed_number</td><td>{{ resident.bed_number }}</td></tr>
+</table>
+
+<!-- DAILY 資料列表 -->
+<h2>{{ report_year }}-{{ "%02d"|format(report_month) }} DAILY 資料（{{ start_date }} ~ {{ end_date }}）</h2>
+
+{% if rows %}
+<table>
+  <tr>
+    {% for name in field_names %}
+      <th>{{ name }}</th>
+    {% endfor %}
+  </tr>
+  {% for row in rows %}
+    <tr>
+      {% for name in field_names %}
+        <td>{{ row[name] }}</td>
+      {% endfor %}
+    </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>本月無 DAILY 資料。</p>
+{% endif %}
+
+</body>
+</html>
