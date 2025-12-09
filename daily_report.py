@@ -1049,7 +1049,7 @@ def report():
                 break
 
         # 規則 2：night_on_bed < 2 小時 → 也不列入
-        if not invalid_day and v_night_on_bed is not None and v_night_on_bed < 2:
+        if not invalid_day and v_night_on_bed is not None and v_night_on_bed < 4:
             invalid_day = True
 
         if invalid_day:
