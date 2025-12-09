@@ -887,7 +887,7 @@ def report():
 
     print(f"[DEBUG] /report resident_id={resident_id} range={start_date}~{end_date} rows={len(daily_list)}")
 
-    # ====== 撈 N_bq_Duration24：bed_state='09'，每天 duration 最大值（秒→小時） ======
+    # ====== 撈 N_bq_Duration24：bed_state='09'，每天 duration 最大值（秒→小時）新增 15 小時上限條件 ======
     duration_query = f"""
     SELECT
       DATE(created_at) AS d,
@@ -897,6 +897,11 @@ def report():
       resident_id = @resident_id
       AND bed_state = '09'
       AND DATE(created_at) BETWEEN @start_date AND @end_date
+      -- ★ 新增：只保留 duration <= 15 小時 的段落
+      AND (
+        SAFE_CAST(duration AS FLOAT64) IS NULL
+        OR SAFE_CAST(duration AS FLOAT64) <= 15 * 3600
+      )
     GROUP BY d
     """
 
@@ -932,6 +937,11 @@ def report():
       resident_id = @resident_id
       AND bed_state = '09'
       AND DATE(created_at) BETWEEN @start_date AND @end_date_plus1
+      -- ★ 新增：duration > 15 小時的段落，不參與任何翻身計算
+      AND (
+        SAFE_CAST(duration AS FLOAT64) IS NULL
+        OR SAFE_CAST(duration AS FLOAT64) <= 15 * 3600
+      )
     ORDER BY d, time_start
     """
 
@@ -1049,7 +1059,7 @@ def report():
                 break
 
         # 規則 2：night_on_bed < 2 小時 → 也不列入
-        if not invalid_day and v_night_on_bed is not None and v_night_on_bed < 4:
+        if not invalid_day and v_night_on_bed is not None and v_night_on_bed < 2:
             invalid_day = True
 
         if invalid_day:
@@ -1761,6 +1771,11 @@ def half_report():
       resident_id = @resident_id
       AND bed_state = '09'
       AND DATE(created_at) BETWEEN @start_date AND @end_date_plus1
+      -- ★ 新增：半年翻身圖一樣忽略 duration > 15 小時的段
+      AND (
+        SAFE_CAST(duration AS FLOAT64) IS NULL
+        OR SAFE_CAST(duration AS FLOAT64) <= 15 * 3600
+      )
     ORDER BY d, time_start
     """
 
