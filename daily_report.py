@@ -1185,23 +1185,31 @@ def report():
     else:
         avg_night_leave_for_mode = None
 
-    # ===== 判斷報表類型 =====
-    # 1) 先看 URL 是否有強制指定 ?mode=bed / ?mode=active
+        # ===== 先算出系統自動判斷的報表類型 =====
+    if (
+        avg_onbed_total is not None
+        and avg_onbed_total >= 10
+        and avg_night_leave_for_mode is not None
+        and avg_night_leave_for_mode <= 1
+    ):
+        auto_report_type = "bed"
+    else:
+        auto_report_type = "active"
+
+    # ===== 再看 URL 有没有強制指定 ?mode=bed / ?mode=active =====
     force_mode = request.args.get("mode")
     if force_mode in ("bed", "active"):
         report_type = force_mode
     else:
-        # 2) 不再使用 codename，只看兩個月平均條件：
-        #    (night_on_bed + day_on_bed) 平均 >= 10 小時 且 night_leave 平均 <= 1
-        if (
-            avg_onbed_total is not None
-            and avg_onbed_total >= 10
-            and avg_night_leave_for_mode is not None
-            and avg_night_leave_for_mode <= 1
-        ):
-            report_type = "bed"
-        else:
-            report_type = "active"
+        report_type = auto_report_type
+
+    print(
+        f"[DEBUG] report_type={report_type}, "
+        f"avg_day_leave={avg_day_leave:.2f}, "
+        f"avg_onbed_total={avg_onbed_total:.2f}, "
+        f"avg_night_leave_for_mode={avg_night_leave_for_mode}, "
+        f"codename={resident_info.get('codename')}"
+    )
 
     print(
         f"[DEBUG] report_type={report_type}, "
