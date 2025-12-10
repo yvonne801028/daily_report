@@ -1174,7 +1174,7 @@ def report():
 
         d += timedelta(days=1)
 
-    # ===== 月平均計算 =====
+        # ===== 月平均計算 =====
     avg_day_leave = (sum_day_leave / cnt_day_leave) if cnt_day_leave > 0 else 0.0
     avg_onbed_total = (sum_onbed_total / cnt_onbed_total) if cnt_onbed_total > 0 else 0.0
 
@@ -1185,7 +1185,7 @@ def report():
     else:
         avg_night_leave_for_mode = None
 
-           # ===== 先計算系統自動判斷的 report_type =====
+    # ===== 先計算系統自動判斷的 report_type =====
     if (
         avg_onbed_total is not None
         and avg_onbed_total >= 10
