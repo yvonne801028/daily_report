@@ -1185,7 +1185,7 @@ def report():
     else:
         avg_night_leave_for_mode = None
 
-        # ===== 先算出系統自動判斷的報表類型 =====
+           # ===== 先計算系統自動判斷的 report_type =====
     if (
         avg_onbed_total is not None
         and avg_onbed_total >= 10
@@ -1196,20 +1196,14 @@ def report():
     else:
         auto_report_type = "active"
 
-    # ===== 再看 URL 有没有強制指定 ?mode=bed / ?mode=active =====
+    # ===== 再看 URL 是否有強制指定 mode =====
     force_mode = request.args.get("mode")
+    print("[DEBUG] /report force_mode =", force_mode)
+
     if force_mode in ("bed", "active"):
         report_type = force_mode
     else:
         report_type = auto_report_type
-
-    print(
-        f"[DEBUG] report_type={report_type}, "
-        f"avg_day_leave={avg_day_leave:.2f}, "
-        f"avg_onbed_total={avg_onbed_total:.2f}, "
-        f"avg_night_leave_for_mode={avg_night_leave_for_mode}, "
-        f"codename={resident_info.get('codename')}"
-    )
 
     print(
         f"[DEBUG] report_type={report_type}, "
