@@ -185,8 +185,12 @@
         </div>
     </div>
 
-    <!-- 年月選擇 + 按鈕，一個 form，多個按鈕用 formaction 分流 -->
-    <form method="get" novalidate>
+    <!-- 年月選擇 + 按鈕：用 hidden input 帶 mode 參數 -->
+    <form id="reportForm"
+          method="get"
+          action="{{ url_for('report') }}"
+          novalidate>
+
         <div class="field-group">
             <div class="field-label">選擇年月</div>
             <div class="ym-row">
@@ -197,29 +201,32 @@
             </div>
         </div>
 
+        <!-- 報表類型：臥床 / 離床，用 JS 改這個值 -->
+        <input type="hidden" name="mode" id="modeInput" value="">
+
         <div class="btn-area">
-            <!-- 臥床月報：強制使用 bed 模板 -->
+            <!-- 臥床月報：mode=bed -->
             <button type="submit"
                     class="btn-main"
-                    formaction="{{ url_for('report', mode='bed') }}">
+                    onclick="setReportMode('bed')">
                 臥床月報
             </button>
 
-            <!-- 離床月報：強制使用 active 模板 -->
+            <!-- 離床月報：mode=active -->
             <button type="submit"
                     class="btn-main"
-                    formaction="{{ url_for('report', mode='active') }}">
+                    onclick="setReportMode('active')">
                 離床月報
             </button>
 
-            <!-- 30日作息 -->
+            <!-- 30日作息：直接走自己的 route，不吃 mode -->
             <button type="submit"
                     class="btn-sub"
                     formaction="{{ url_for('report_30days') }}">
                 30日作息
             </button>
 
-            <!-- 半年追蹤（仍讓後端自動判斷臥床/離床） -->
+            <!-- 半年追蹤：直接走自己的 route，不吃 mode -->
             <button type="submit"
                     class="btn-sub"
                     formaction="{{ url_for('half_report') }}">
@@ -233,5 +240,15 @@
         <a href="{{ url_for('logout') }}">登出</a>
     </div>
 </div>
+
+<script>
+    function setReportMode(mode) {
+        const input = document.getElementById('modeInput');
+        if (input) {
+            input.value = mode;
+        }
+        // submit 會依 form 的 action=/report，加上 year/month/mode 一起送
+    }
+</script>
 </body>
 </html>
