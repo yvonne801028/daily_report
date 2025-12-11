@@ -453,6 +453,8 @@ def _norm_digits(x):
 def get_month_comments_from_sheet(serial_id: str, agency_id: int, year: int, month: int):
     """
     讀取 Google Sheet 評語；對 serial/agency 進行強力正規化比對。
+    支援：
+      - 同一個住民 / 月份，可以用「一列填離床」、「另一列填臥床」。
     """
     result = {
         "active_summary": "", "active_resp": "", "active_sleep_range": "",
@@ -505,10 +507,12 @@ def get_month_comments_from_sheet(serial_id: str, agency_id: int, year: int, mon
     target_agency_norm = _norm_digits(agency_id)
     print(f"[DEBUG] Target serial='{target_serial_norm}', agency='{target_agency_norm}', ym={year}-{month:02d}")
 
-    # 先收集同月候選列
+    # 儲存「最適合的離床列」與「最適合的臥床列」
+    active_row = None
+    bed_row = None
+
     month_candidates = []
 
-    hit_row = None
     for row_vals in values[1:]:
         row = {headers[i]: (row_vals[i] if i < len(row_vals) else "") for i in range(len(headers))}
         y, mth = parse_month_cell(row.get("月份"))
@@ -534,16 +538,54 @@ def get_month_comments_from_sheet(serial_id: str, agency_id: int, year: int, mon
         if sheet_agency_norm and (sheet_agency_norm != target_agency_norm):
             continue
 
-        hit_row = row
-        break
+        # 走到這裡，代表「這一列是同一個人、同一個機構、同一個月」
+        # 檢查這列有沒有填離床欄位 / 臥床欄位
+        has_active = any(
+            (row.get(col) or "").strip()
+            for col in [
+                "本月總結_離床",
+                "月呼吸率紀錄_離床",
+                "每日休息時段_離床",
+                "每日上床休息時間_離床",
+                "夜間休息離床次數_離床",
+                "每月趨勢狀態_離床",
+                "月趨勢狀態總結_離床",
+            ]
+            if col in headers
+        )
+
+        has_bed = any(
+            (row.get(col) or "").strip()
+            for col in [
+                "本月總結_臥床",
+                "月呼吸率紀錄_臥床",
+                "夜間最床臥床時段_臥床",
+                "日間離床總時長_臥床",
+                "日夜翻身間隔_臥床",
+                "每月趨勢狀態_臥床",
+                "月趨勢狀態總結_臥床",
+            ]
+            if col in headers
+        )
+
+        if has_active and active_row is None:
+            active_row = row
+        if has_bed and bed_row is None:
+            bed_row = row
 
     print("[DEBUG] 當月候選列（前 5 筆）：")
     for item in month_candidates[:5]:
         print("  月份/serial/agency/raw_norm =", item)
 
-    if not hit_row:
+    if active_row is None and bed_row is None:
         print("[WARN] 仍未命中評語列（請檢查上面 raw_norm 值是否與 Target 一致）")
         return result
+
+    # 如果只有其中一種有，另一種就 fallback
+    if active_row is None:
+        active_row = bed_row
+    if bed_row is None:
+        bed_row = active_row
 
     mapping = {
         "active_summary": "本月總結_離床",
@@ -561,19 +603,28 @@ def get_month_comments_from_sheet(serial_id: str, agency_id: int, year: int, mon
         "bed_trend": "每月趨勢狀態_臥床",
         "bed_trend_summary": "月趨勢狀態總結_臥床",
     }
+
     for key, col in mapping.items():
+        # active_* 用 active_row，bed_* 用 bed_row
+        src_row = active_row if key.startswith("active_") else bed_row
+        if src_row is None:
+            continue
+
         if isinstance(col, list):
             for c in col:
-                val = (hit_row.get(c) or "").strip()
+                if c not in headers:
+                    continue
+                val = (src_row.get(c) or "").strip()
                 if val:
                     result[key] = val
                     break
         else:
-            result[key] = (hit_row.get(col) or "").strip()
+            if col not in headers:
+                continue
+            result[key] = (src_row.get(col) or "").strip()
 
     print("[DEBUG] 命中評語鍵：", [k for k, v in result.items() if v])
     return result
-
 
 # ================== 4. Routes ==================
 
