@@ -24,7 +24,7 @@
             font-family: "Microsoft JhengHei", -apple-system, BlinkMacSystemFont,
                          "Segoe UI", system-ui, sans-serif;
             background: #bfe6ec;
-            overflow-x: hidden;  /* 防止手機出現水平捲軸 */
+            overflow-x: hidden;
         }
 
         .report-page {
@@ -75,23 +75,16 @@
 
         /* ==================== header：名字 + person.png + 三顆分數 ==================== */
 
-        /* score.png 當底圖（桌機版） */
         .resident-main-row {
             position: relative;
             margin-top: 10px;
-
-            /* 高度決定底圖看起來有多高（桌機） */
             height: 220px;
-
             background-image: url('{{ url_for("static", filename="img/score.png") }}');
             background-repeat: no-repeat;
-
-            /* 桌機位置 */
             background-position: 300px -10px;
             background-size: 60% auto;
         }
 
-        /* 整組「名字＋person」的基準位置（桌機） */
         .resident-name-row {
             position: absolute;
             left: 90px;
@@ -189,7 +182,6 @@
             background: #f6fbff;
         }
 
-        /* 匯出按鈕列 */
         .export-buttons {
             display: flex;
             justify-content: flex-end;
@@ -246,8 +238,6 @@
             font-weight: 700;
             margin-bottom: 4px;
         }
-
-        /* 圖表卡片 */
 
         .chart-section {
             margin-top: 12px;
@@ -309,7 +299,7 @@
             text-align: right;
         }
 
-        /* ======= 手機版 ======= */
+        /* ===== 手機版 ===== */
         @media (max-width: 700px) {
             body {
                 padding: 8px;
@@ -474,7 +464,6 @@
             </div>
         </div>
 
-        <!-- score.png 當底圖，名字＋person＋三顆臉疊在上面 -->
         <div class="resident-main-row">
             <div class="resident-name-row">
                 <div class="star-badge">⭐</div>
@@ -521,7 +510,7 @@
             <button type="button" onclick="downloadPdf()">下載 PDF</button>
         </div>
 
-        <!-- 本月摘要：只用 bed_summary，沒寫就空白 -->
+        {# 本月摘要：只看 bed_summary，沒寫就空 #}
         {% set summary = month_comments["bed_summary"] %}
 
         <div class="section-title-main">本月摘要：</div>
@@ -529,7 +518,7 @@
             {{ summary or "" }}
         </div>
 
-        <!-- 圖1：每日呼吸紀錄（臥床共用） -->
+        <!-- 圖1：每日呼吸紀錄（評語：bed_resp） -->
         <section class="chart-section">
             <div class="chart-header">
                 <div class="chart-title-pill">每日呼吸紀錄</div>
@@ -542,7 +531,7 @@
             </div>
         </section>
 
-        <!-- 圖2：夜間最長臥床時長 -->
+        <!-- 圖2：夜間最長臥床時長（評語：bed_night_bed） -->
         <section class="chart-section">
             <div class="chart-header">
                 <div class="chart-title-pill">夜間最長臥床時長</div>
@@ -555,7 +544,7 @@
             </div>
         </section>
 
-        <!-- 圖3：日間離床總時長 -->
+        <!-- 圖3：日間離床總時長（評語：bed_leave_total） -->
         <section class="chart-section">
             <div class="chart-header">
                 <div class="chart-title-pill">日間離床總時長</div>
@@ -568,7 +557,7 @@
             </div>
         </section>
 
-        <!-- 圖4：日夜平均翻身間隔 -->
+        <!-- 圖4：日夜平均翻身間隔（評語：bed_turn） -->
         <section class="chart-section">
             <div class="chart-header">
                 <div class="chart-title-pill">日夜平均翻身間隔</div>
@@ -597,7 +586,6 @@
     const nightTurn     = {{ night_turn_interval | tojson }};
     const dayTurn       = {{ day_turn_interval | tojson }};
 
-    // 一般折線圖，增加 yMin 參數（可選）
     function makeLineChart(ctxId, labels, data, yLabel, yMin) {
         const ctx = document.getElementById(ctxId);
         if (!ctx) return;
@@ -634,7 +622,6 @@
         });
     }
 
-    // 一般長條圖
     function makeBarChart(ctxId, labels, data, yLabel) {
         const ctx = document.getElementById(ctxId);
         if (!ctx) return;
@@ -668,36 +655,16 @@
         });
     }
 
-    // 小時數轉 HH:MM
-    function hourToHHMM(v) {
-        if (v == null || isNaN(v)) return '';
-        let h = Math.floor(v);
-        let m = Math.round((v - h) * 60);
-
-        if (m === 60) {
-            h += 1;
-            m = 0;
-        }
-
-        if (h >= 24) {
-            h -= 24;
-        }
-
-        const hh = String(h).padStart(2, '0');
-        const mm = String(m).padStart(2, '0');
-        return `${hh}:${mm}`;
-    }
-
-    // ===== 圖1：每日呼吸紀錄（Y 軸最低改為 5） =====
+    // ===== 圖1：每日呼吸紀錄（Y 軸最低 5） =====
     makeLineChart('chart1', labels, respRate, '呼吸次/分', 5);
 
     // ===== 圖2：夜間最長臥床時長（柱狀圖） =====
     makeBarChart('chart2', labels, nightBedHours, '小時');
 
-    // ===== 圖3：日間離床總時長（折線） =====
+    // ===== 圖3：日間離床總時長（折線圖） =====
     makeLineChart('chart3', labels, dayLeaveTotal, '小時');
 
-    // ===== 圖4：日夜平均翻身間隔（改為小時，夜/日兩條線） =====
+    // ===== 圖4：日夜平均翻身間隔（分鐘→小時，兩條線） =====
     (function () {
         const ctx = document.getElementById('chart4');
         if (!ctx) return;
