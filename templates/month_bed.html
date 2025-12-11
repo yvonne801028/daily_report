@@ -91,7 +91,7 @@
             background-size: 60% auto;
         }
 
-        /* ★ 整組「名字＋person」的基準位置（桌機） */
+        /* 整組「名字＋person」的基準位置（桌機） */
         .resident-name-row {
             position: absolute;
             left: 90px;
@@ -309,7 +309,7 @@
             text-align: right;
         }
 
-        /* ======= 手機版（重排整個 header 區塊 + 圖表） ======= */
+        /* ======= 手機版 ======= */
         @media (max-width: 700px) {
             body {
                 padding: 8px;
@@ -340,16 +340,15 @@
                 text-align: left;
             }
 
-            /* header 中的 score + 名字 + icon 改成垂直排版 */
             .resident-main-row {
-                height: auto;                       /* 高度改自適應 */
-                padding: 90px 8px 8px;              /* 上方留空給背景圖 */
-                background-position: center -40px;  /* 手機版把圖置中 */
-                background-size: 180% auto;         /* 放大一點，當裝飾 */
+                height: auto;
+                padding: 90px 8px 8px;
+                background-position: center -40px;
+                background-size: 180% auto;
             }
 
             .resident-name-row {
-                position: static;                   /* 不再絕對定位 */
+                position: static;
                 display: flex;
                 justify-content: center;
                 margin-bottom: 8px;
@@ -376,7 +375,7 @@
             }
 
             .status-icons-row {
-                position: static;             /* 不再壓在背景上 */
+                position: static;
                 display: flex;
                 justify-content: space-between;
                 align-items: flex-start;
@@ -440,7 +439,7 @@
             }
 
             .chart-canvas-wrapper canvas {
-                height: 200px;   /* 手機上圖稍微高一點 */
+                height: 200px;
             }
 
             .footer-note {
@@ -481,7 +480,6 @@
                 <div class="star-badge">⭐</div>
                 <div class="resident-name-block">
                     <div class="resident-name">{{ resident.resident_name }}</div>
-                    <!-- 名字下面的 person.png（位置由 .resident-person 控制） -->
                     <img class="resident-person"
                          src="{{ url_for('static', filename='img/person.png') }}"
                          alt="resident icon">
@@ -523,12 +521,12 @@
             <button type="button" onclick="downloadPdf()">下載 PDF</button>
         </div>
 
-        <!-- 本月摘要：臥床 -->
+        <!-- 本月摘要：只用 bed_summary，沒寫就空白 -->
         {% set summary = month_comments["bed_summary"] %}
 
         <div class="section-title-main">本月摘要：</div>
         <div class="summary-bubble">
-            {{ summary or "本月尚無摘要內容。" }}
+            {{ summary or "" }}
         </div>
 
         <!-- 圖1：每日呼吸紀錄（臥床共用） -->
@@ -536,7 +534,7 @@
             <div class="chart-header">
                 <div class="chart-title-pill">每日呼吸紀錄</div>
                 <div class="chart-comment">
-                    {{ month_comments["bed_resp"] or "尚未提供評語。" }}
+                    {{ month_comments["bed_resp"] or "" }}
                 </div>
             </div>
             <div class="chart-canvas-wrapper">
@@ -549,7 +547,7 @@
             <div class="chart-header">
                 <div class="chart-title-pill">夜間最長臥床時長</div>
                 <div class="chart-comment">
-                    {{ month_comments["bed_night_bed"] or "尚未提供評語。" }}
+                    {{ month_comments["bed_night_bed"] or "" }}
                 </div>
             </div>
             <div class="chart-canvas-wrapper">
@@ -562,7 +560,7 @@
             <div class="chart-header">
                 <div class="chart-title-pill">日間離床總時長</div>
                 <div class="chart-comment">
-                    {{ month_comments["bed_leave_total"] or "尚未提供評語。" }}
+                    {{ month_comments["bed_leave_total"] or "" }}
                 </div>
             </div>
             <div class="chart-canvas-wrapper">
@@ -575,7 +573,7 @@
             <div class="chart-header">
                 <div class="chart-title-pill">日夜平均翻身間隔</div>
                 <div class="chart-comment">
-                    {{ month_comments["bed_turn"] or "尚未提供評語。" }}
+                    {{ month_comments["bed_turn"] or "" }}
                 </div>
             </div>
             <div class="chart-canvas-wrapper">
