@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ report_year }}年{{ "%02d"|format(report_month) }}月 離床月報 - {{ resident.resident_name }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 匯出圖檔 / PDF 用 -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        * ,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 16px;
+            font-family: "Microsoft JhengHei", -apple-system, BlinkMacSystemFont,
+                         "Segoe UI", system-ui, sans-serif;
+            background: #bfe6ec;
+            overflow-x: hidden;  /* 防止手機出現水平捲軸 */
+        }
+
+        .report-page {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fefefe;
+            border-radius: 24px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
+            overflow: hidden;
+        }
+
+        /* ===== header ===== */
+
+        .header {
+            background: linear-gradient(90deg, #ff7fa3 0%, #ffb0d0 50%, #ffe3f0 100%);
+            padding: 18px 24px 16px;
+            color: #333;
+            position: relative;
+        }
+
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        .header-month {
+            background: #fdfdfd;
+            border-radius: 999px;
+            padding: 6px 18px;
+            font-size: 18px;
+            font-weight: 700;
+            border: 2px solid #333;
+            box-shadow: 0 3px 0 #e291a8;
+            white-space: nowrap;
+        }
+
+        .header-right {
+            text-align: right;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .header-right strong {
+            font-weight: 700;
+        }
+
+        /* ==================== header：名字 + person.png + 三顆分數 ==================== */
+
+        /* score.png 當底圖（桌機版） */
+        .resident-main-row {
+            position: relative;
+            margin-top: 10px;
+
+            /* 高度決定底圖看起來有多高（桌機） */
+            height: 220px;
+
+            background-image: url('{{ url_for("static", filename="img/score.png") }}');
+            background-repeat: no-repeat;
+
+            /* 桌機位置 */
+            background-position: 300px -10px;
+            background-size: 60% auto;
+        }
+
+        /* ★ 整組「名字＋person」的基準位置（桌機） */
+        .resident-name-row {
+            position: absolute;
+            left: 90px;
+            top: 60px;
+        }
+
+        .resident-name-block {
+            position: relative;
+            width: 240px;
+            height: 200px;
+        }
+
+        .star-badge {
+            display: none;
+        }
+
+        .resident-name {
+            position: absolute;
+            left: -9px;
+            top: -75px;
+            font-size: 30px;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+        }
+
+        .resident-person {
+            position: absolute;
+            left: -50px;
+            top: -30px;
+            width: 180px;
+            height: auto;
+            display: block;
+            border-radius: 50%;
+        }
+
+        .status-icons-row {
+            position: absolute;
+            top: 50px;
+            left: -2px;
+            width: 100%;
+            height: 60px;
+            pointer-events: none;
+        }
+
+        .status-icon {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 24px;
+            color: #555;
+            font-weight: 700;
+            pointer-events: auto;
+            z-index: 1;
+            text-align: center;
+        }
+
+        .status-icon.icon-rr {
+            left: 445px;
+            margin-top: 5px;
+        }
+        .status-icon.icon-daily {
+            left: 581px;
+            margin-top: 30px;
+        }
+        .status-icon.icon-sleep {
+            left: 715px;
+            margin-top: 9px;
+        }
+
+        .status-icon-circle {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            margin-bottom: 15px;
+        }
+
+        .status-icon-circle img {
+            width: 100px;
+            height: 100px;
+            object-fit: contain;
+        }
+
+        /* ===== 內容 ===== */
+
+        .content {
+            padding: 18px 24px 20px;
+            background: #f6fbff;
+        }
+
+        /* 匯出按鈕列 */
+        .export-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .export-buttons button {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 999px;
+            border: 1px solid #888;
+            background: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 2px 0 rgba(0,0,0,0.15);
+        }
+        .export-buttons button:active {
+            transform: translateY(1px);
+            box-shadow: 0 1px 0 rgba(0,0,0,0.15);
+        }
+
+        .summary-bubble {
+            background: #ffffff;
+            border-radius: 18px;
+            border: 2px solid #ffd5df;
+            padding: 10px 14px;
+            font-size: 14px;
+            line-height: 1.7;
+            margin: 16px 0 10px;
+            position: relative;
+        }
+
+        .summary-bubble::before {
+            content: "";
+            position: absolute;
+            left: 40px;
+            top: -14px;
+            border-width: 0 12px 14px 12px;
+            border-style: solid;
+            border-color: transparent transparent #ffd5df transparent;
+        }
+
+        .summary-bubble::after {
+            content: "";
+            position: absolute;
+            left: 41px;
+            top: -11px;
+            border-width: 0 11px 13px 11px;
+            border-style: solid;
+            border-color: transparent transparent #ffffff transparent;
+        }
+
+        .section-title-main {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        /* 圖表卡片 */
+
+        .chart-section {
+            margin-top: 12px;
+            background: #ffffff;
+            border-radius: 12px;
+            border: 2px solid #333;
+            padding: 8px 10px 10px;
+            box-shadow: 0 4px 0 rgba(0, 0, 0, 0.18);
+        }
+
+        .chart-section + .chart-section {
+            margin-top: 16px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+            gap: 8px;
+        }
+
+        .chart-title-pill {
+            background: #ff9eb3;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 4px 14px;
+            border-radius: 999px 0 0 999px;
+        }
+
+        .chart-comment {
+            font-size: 14px;
+            background: #ffece8;
+            border-radius: 16px;
+            padding: 10px 16px;
+            width: 640px;
+            min-height: 20px;
+            line-height: 1.8;
+            border: 1px solid #f5c0b1;
+            box-sizing: border-box;
+            flex-shrink: 0;
+            overflow-wrap: break-word;
+        }
+
+        .chart-canvas-wrapper {
+            margin-top: 4px;
+        }
+
+        .chart-canvas-wrapper canvas {
+            width: 100%;
+            height: 160px;
+        }
+
+        .footer-note {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #777;
+            text-align: right;
+        }
+
+        /* ======= 手機版（重排整個 header 區塊 + 圖表） ======= */
+        @media (max-width: 700px) {
+            body {
+                padding: 8px;
+            }
+
+            .report-page {
+                border-radius: 16px;
+                box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+            }
+
+            .header {
+                padding: 14px 16px;
+            }
+
+            .header-top {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 6px;
+            }
+
+            .header-month {
+                font-size: 16px;
+                padding: 4px 12px;
+            }
+
+            .header-right {
+                font-size: 12px;
+                text-align: left;
+            }
+
+            /* header 中的 score + 名字 + icon 改成垂直排版 */
+            .resident-main-row {
+                height: auto;                       /* 高度改自適應 */
+                padding: 90px 8px 8px;              /* 上方留空給背景圖 */
+                background-position: center -40px;  /* 手機版把圖置中 */
+                background-size: 180% auto;         /* 放大一點，當裝飾 */
+            }
+
+            .resident-name-row {
+                position: static;                   /* 不再絕對定位 */
+                display: flex;
+                justify-content: center;
+                margin-bottom: 8px;
+            }
+
+            .resident-name-block {
+                width: auto;
+                height: auto;
+                text-align: center;
+            }
+
+            .resident-name {
+                position: static;
+                display: block;
+                font-size: 22px;
+                margin-bottom: 4px;
+                letter-spacing: 0.2em;
+            }
+
+            .resident-person {
+                position: static;
+                width: 80px;
+                margin: 0 auto;
+            }
+
+            .status-icons-row {
+                position: static;             /* 不再壓在背景上 */
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                margin-top: 4px;
+                gap: 4px;
+            }
+
+            .status-icon {
+                position: static;
+                transform: none;
+                font-size: 12px;
+            }
+
+            .status-icon.icon-rr,
+            .status-icon.icon-daily,
+            .status-icon.icon-sleep {
+                left: auto;
+                margin-top: 0;
+            }
+
+            .status-icon-circle {
+                width: 72px;
+                height: 72px;
+                margin-bottom: 4px;
+            }
+
+            .status-icon-circle img {
+                width: 72px;
+                height: 72px;
+            }
+
+            .content {
+                padding: 14px 12px 16px;
+            }
+
+            .summary-bubble {
+                font-size: 13px;
+            }
+
+            .chart-section {
+                padding: 8px 8px 10px;
+            }
+
+            .chart-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 6px;
+            }
+
+            .chart-title-pill {
+                border-radius: 999px;
+                font-size: 12px;
+                padding: 4px 10px;
+                align-self: flex-start;
+            }
+
+            .chart-comment {
+                width: 100%;
+                min-height: auto;
+                font-size: 13px;
+            }
+
+            .chart-canvas-wrapper canvas {
+                height: 200px;   /* 手機上圖稍微高一點 */
+            }
+
+            .footer-note {
+                text-align: left;
+                font-size: 10px;
+            }
+
+            .export-buttons {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="report-page">
+
+    <!-- ===== header ===== -->
+    <header class="header">
+        <div class="header-top">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <div class="header-month">
+                    {{ report_year }}年{{ "%02d"|format(report_month) }}月　離床月報
+                </div>
+            </div>
+            <div class="header-right">
+                <div><strong>ID：</strong>{{ resident.resident_id }}</div>
+                <div><strong>序號：</strong>{{ resident.serial_id }}</div>
+                <div><strong>床號：</strong>{{ resident.bed_number }}</div>
+                {% if resident.agency_name %}
+                    <div><strong>機構：</strong>{{ resident.agency_name }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- score.png 當底圖，名字＋person＋三顆臉疊在上面 -->
+        <div class="resident-main-row">
+            <div class="resident-name-row">
+                <div class="star-badge">⭐</div>
+                <div class="resident-name-block">
+                    <div class="resident-name">{{ resident.resident_name }}</div>
+                    <!-- 名字下面的 person.png（位置由 .resident-person 控制） -->
+                    <img class="resident-person"
+                         src="{{ url_for('static', filename='img/person.png') }}"
+                         alt="resident icon">
+                </div>
+            </div>
+
+            <div class="status-icons-row">
+                <div class="status-icon icon-rr">
+                    <div class="status-icon-circle">
+                        <img src="{{ url_for('static', filename='icons/level_' ~ rr_score ~ '.png') }}"
+                             alt="呼吸狀況">
+                    </div>
+                    <div>呼吸狀況</div>
+                </div>
+                <div class="status-icon icon-daily">
+                    <div class="status-icon-circle">
+                        <img src="{{ url_for('static', filename='icons/level_' ~ daily_score ~ '.png') }}"
+                             alt="作息狀況">
+                    </div>
+                    <div>作息狀況</div>
+                </div>
+                <div class="status-icon icon-sleep">
+                    <div class="status-icon-circle">
+                        <img src="{{ url_for('static', filename='icons/level_' ~ sleep_score ~ '.png') }}"
+                             alt="休息品質">
+                    </div>
+                    <div>休息品質</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== 內容 ===== -->
+    <main class="content">
+
+        <!-- 匯出按鈕 -->
+        <div class="export-buttons">
+            <button type="button" onclick="downloadPng()">下載圖檔 (PNG)</button>
+            <button type="button" onclick="downloadPdf()">下載 PDF</button>
+        </div>
+
+        <!-- 本月摘要：離床 -->
+        {% set summary = month_comments["active_summary"] %}
+
+        <div class="section-title-main">本月摘要：</div>
+        <div class="summary-bubble">
+            {{ summary or "本月尚無摘要內容。" }}
+        </div>
+
+        <!-- 圖1：每日呼吸紀錄 -->
+        <section class="chart-section">
+            <div class="chart-header">
+                <div class="chart-title-pill">每日呼吸紀錄</div>
+                <div class="chart-comment">
+                    {{ month_comments["active_resp"] or "尚未提供評語。" }}
+                </div>
+            </div>
+            <div class="chart-canvas-wrapper">
+                <canvas id="chart1"></canvas>
+            </div>
+        </section>
+
+        <!-- 圖2：每日夜間休息時段 -->
+        <section class="chart-section">
+            <div class="chart-header">
+                <div class="chart-title-pill">每日夜間休息時段</div>
+                <div class="chart-comment">
+                    {{ month_comments["active_sleep_range"] or "尚未提供評語。" }}
+                </div>
+            </div>
+            <div class="chart-canvas-wrapper">
+                <canvas id="chart2"></canvas>
+            </div>
+        </section>
+
+        <!-- 圖3：每日上床休息時間 -->
+        <section class="chart-section">
+            <div class="chart-header">
+                <div class="chart-title-pill">每日上床休息時間</div>
+                <div class="chart-comment">
+                    {{ month_comments["active_asleep_start"] or "尚未提供評語。" }}
+                </div>
+            </div>
+            <div class="chart-canvas-wrapper">
+                <canvas id="chart3"></canvas>
+            </div>
+        </section>
+
+        <!-- 圖4：夜間休息離床次數 -->
+        <section class="chart-section">
+            <div class="chart-header">
+                <div class="chart-title-pill">夜間休息離床次數</div>
+                <div class="chart-comment">
+                    {{ month_comments["active_night_leave"] or "尚未提供評語。" }}
+                </div>
+            </div>
+            <div class="chart-canvas-wrapper">
+                <canvas id="chart4"></canvas>
+            </div>
+        </section>
+
+        <div class="footer-note">
+            統計區間：{{ start_date }} ～ {{ end_date }}　
+            （本頁圖表僅供照護參考，若有不適請儘速就醫）
+        </div>
+
+    </main>
+</div>
+
+<script>
+    const labels           = {{ labels | tojson }};
+    const respRate         = {{ resp_rate | tojson }};
+    const nightSleepRange  = {{ night_sleep_range | tojson }};
+    const asleepStartHours = {{ asleep_start_hours | tojson }};
+    const nightLeaveCount  = {{ night_leave_count | tojson }};
+
+    // 一般折線圖，增加 yMin 參數（可選）
+    function makeLineChart(ctxId, labels, data, yLabel, yMin) {
+        const ctx = document.getElementById(ctxId);
+        if (!ctx) return;
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    tension: 0.3,
+                    pointRadius: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    x: {
+                        ticks: { maxTicksLimit: 10, autoSkip: true },
+                        grid: { display: false }
+                    },
+                    y: {
+                        beginAtZero: (yMin == null),
+                        min: (yMin != null ? yMin : undefined),
+                        title: { display: !!yLabel, text: yLabel }
+                    }
+                }
+            }
+        });
+    }
+
+    // 一般長條圖
+    function makeBarChart(ctxId, labels, data, yLabel) {
+        const ctx = document.getElementById(ctxId);
+        if (!ctx) return;
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    x: {
+                        ticks: { maxTicksLimit: 10, autoSkip: true },
+                        grid: { display: false }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: { display: !!yLabel, text: yLabel }
+                    }
+                }
+            }
+        });
+    }
+
+    // 小時數轉 HH:MM
+    function hourToHHMM(v) {
+        if (v == null || isNaN(v)) return '';
+        let h = Math.floor(v);
+        let m = Math.round((v - h) * 60);
+
+        if (m === 60) {
+            h += 1;
+            m = 0;
+        }
+
+        if (h >= 24) {
+            h -= 24;
+        }
+
+        const hh = String(h).padStart(2, '0');
+        const mm = String(m).padStart(2, '0');
+        return `${hh}:${mm}`;
+    }
+
+    // 「每日上床時間」折線圖：Y 軸 HH:MM，範圍至少 6 小時，下界多抓 1 小時
+    function makeTimeLineChart(ctxId, labels, data) {
+        const ctx = document.getElementById(ctxId);
+        if (!ctx) return;
+
+        const valid = (data || []).filter(v => v != null && !isNaN(v));
+        let yMin = undefined;
+        let yMax = undefined;
+
+        if (valid.length > 0) {
+            const rawMin = Math.min(...valid);
+            const rawMax = Math.max(...valid);
+
+            yMin = Math.floor(rawMin) - 1;  // 下限多抓一小時
+            yMax = rawMax;
+
+            if (yMax - yMin < 6) {
+                yMax = yMin + 6;            // 範圍至少 6 小時
+            }
+        }
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    tension: 0.3,
+                    pointRadius: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function (context) {
+                                const t = hourToHHMM(context.parsed.y);
+                                return t ? `上床時間：${t}` : '';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { maxTicksLimit: 10, autoSkip: true },
+                        grid: { display: false }
+                    },
+                    y: {
+                        beginAtZero: false,
+                        min: yMin,
+                        max: yMax,
+                        ticks: {
+                            stepSize: 1,
+                            callback: function (value) {
+                                return hourToHHMM(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 夜間休息時段：asleep_start → asleep_end 的區間長條圖（淺藍色）
+    function makeNightRangeBarChart(ctxId, labels, rangeArr) {
+        const ctx = document.getElementById(ctxId);
+        if (!ctx) return;
+
+        const startArr = [];
+        const lenArr   = [];
+
+        (rangeArr || []).forEach(r => {
+            if (!r || r.length !== 2 || r[0] == null || r[1] == null) {
+                startArr.push(null);
+                lenArr.push(null);
+            } else {
+                const s = Number(r[0]);
+                const e = Number(r[1]);
+                const diff = e - s;
+                if (isNaN(s) || isNaN(diff) || diff <= 0) {
+                    startArr.push(null);
+                    lenArr.push(null);
+                } else {
+                    startArr.push(s);
+                    lenArr.push(diff);
+                }
+            }
+        });
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'offset',
+                        data: startArr,
+                        stack: 'sleep',
+                        backgroundColor: 'rgba(0,0,0,0)',
+                        borderWidth: 0,
+                        hoverBackgroundColor: 'rgba(0,0,0,0)',
+                        hoverBorderWidth: 0,
+                    },
+                    {
+                        label: '夜間休息',
+                        data: lenArr,
+                        stack: 'sleep',
+                        backgroundColor: 'rgba(173, 216, 230, 0.8)',   // 淺藍色
+                        borderColor: '#7db5d6',
+                        borderWidth: 1.5,
+                        hoverBackgroundColor: 'rgba(173, 216, 230, 1.0)',
+                        hoverBorderColor: '#7db5d6',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        filter: function (tooltipItem) {
+                            return tooltipItem.datasetIndex === 1;
+                        },
+                        callbacks: {
+                            label: function (context) {
+                                const idx = context.dataIndex;
+                                const s = startArr[idx];
+                                const len = lenArr[idx];
+                                if (s == null || len == null) return '';
+                                const e = s + len;
+                                return `休息時段：${hourToHHMM(s)} ~ ${hourToHHMM(e)}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        ticks: { maxTicksLimit: 10, autoSkip: true },
+                        grid: { display: false }
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: false,
+                        ticks: {
+                            stepSize: 1,
+                            callback: function (value) {
+                                return hourToHHMM(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // ===== 圖1：每日呼吸紀錄（Y 軸最低改為 5） =====
+    makeLineChart('chart1', labels, respRate, '呼吸次/分', 5);
+
+    // ===== 圖2：每日夜間休息時段（堆疊區段柱） =====
+    makeNightRangeBarChart('chart2', labels, nightSleepRange);
+
+    // ===== 圖3：每日上床時間（時間軸） =====
+    makeTimeLineChart('chart3', labels, asleepStartHours);
+
+    // ===== 圖4：夜間休息離床次數（折線圖） =====
+    (function () {
+        const ctx = document.getElementById('chart4');
+        if (!ctx) return;
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '夜間休息離床次數',
+                    data: nightLeaveCount,
+                    tension: 0,
+                    pointRadius: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    x: {
+                        ticks: { maxTicksLimit: 10, autoSkip: true },
+                        grid: { display: false }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: '次' },
+                        ticks: { stepSize: 1 }
+                    }
+                }
+            }
+        });
+    })();
+
+    // ===== 匯出：PNG / PDF =====
+    function captureReportPage() {
+        const node = document.querySelector('.report-page');
+        return html2canvas(node, {
+            scale: 2,
+            useCORS: true,
+            scrollY: -window.scrollY
+        });
+    }
+
+    function downloadPng() {
+        captureReportPage().then(canvas => {
+            const link = document.createElement('a');
+            const y = {{ report_year }};
+            const m = {{ "%02d"|format(report_month) }};
+            const name = '{{ resident.resident_name|replace(" ", "_") }}';
+            link.download = `${y}${m}_離床月報_${name}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+    }
+
+    function downloadPdf() {
+        captureReportPage().then(canvas => {
+            const imgData = canvas.toDataURL('image/jpeg', 0.98);
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+
+            const pageWidth  = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth   = pageWidth;
+            const imgHeight  = canvas.height * imgWidth / canvas.width;
+
+            if (imgHeight <= pageHeight) {
+                pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+            } else {
+                const ratio = pageHeight / imgHeight;
+                const w = imgWidth * ratio;
+                const x = (pageWidth - w) / 2;
+                pdf.addImage(imgData, 'JPEG', x, 0, w, pageHeight);
+            }
+
+            const y = {{ report_year }};
+            const m = {{ "%02d"|format(report_month) }};
+            const name = '{{ resident.resident_name|replace(" ", "_") }}';
+            pdf.save(`${y}${m}_離床月報_${name}.pdf`);
+        });
+    }
+</script>
+</body>
+</html>
