@@ -1519,8 +1519,14 @@ def report():
         f"sleep_score={sleep_score}"
     )
 
+        # 根據 report_type 選擇要使用的模板
+    if report_type == "bed":
+        template_name = "month_bed.html"
+    else:
+        template_name = "month_active.html"
+
     return render_template(
-        "month_report.html",
+        template_name,
         resident=resident_info,
         report_year=report_year,
         report_month=report_month,
